@@ -1,0 +1,168 @@
+defmodule RpiFbCapture do
+  use GenServer
+
+  @moduledoc """
+  Capture the Raspberry Pi's frame buffer
+  """
+
+  @type option ::
+          {:width, non_neg_integer()}
+          | {:height, non_neg_integer()}
+          | {:display, non_neg_integer()}
+  @type format :: :ppm | :rgb24 | :rgb565 | :mono | :mono_column_scan
+
+  defmodule State do
+    @moduledoc false
+    defstruct port: nil,
+              width: 0,
+              height: 0,
+              display_width: 0,
+              display_height: 0,
+              display_id: 0,
+              request: nil
+  end
+
+  @doc """
+  Start up the capture process
+
+  NOTE: The Raspberry Pi capture hardware has limitations on the window
+  size. In general, capturing the whole display is fine. Keeping the width
+  as a multiple of 16 appears to be good.
+
+  Options:
+
+  * `:width` - the width of the capture window (0 for the display width)
+  * `:height` - the height of the capture window (0 for the display width)
+  * `:display` - which display to capture (defaults to 0)
+  """
+  @spec start_link([option()]) :: :ignore | {:error, any()} | {:ok, pid()}
+  def start_link(args \\ []) when is_list(args) do
+    GenServer.start_link(__MODULE__, args)
+  end
+
+  @doc """
+  Stop the capture process
+  """
+  @spec stop(GenServer.server()) :: :ok
+  def stop(server) do
+    GenServer.stop(server)
+  end
+
+  @doc """
+  Capture the screen in the specified format.
+
+  Formats include:
+
+  * `:ppm` - PPM-formatted data
+  * `:rgb24` - Raw 24-bit RGB data 8-bits R, G, then B
+  * `:rgb565` - Raw 16-bit data 5-bits R, 6-bits G, 5-bits B
+  * `:mono` - Raw 1-bpp data
+  * `:mono_column_scan` - Raw 1-bpp data, but scanned down columns
+  """
+  @spec capture(GenServer.server(), format()) :: {:ok, iodata()} | {:error, atom()}
+  def capture(server, format) do
+    GenServer.call(server, {:capture, format})
+  end
+
+  # Server (callbacks)
+
+  @impl true
+  @spec init(keyword()) :: {:ok, any()}
+  def init(args) do
+    executable = Application.app_dir(:rpi_fb_capture, ["priv", "rpi_fb_capture"])
+    width = Keyword.get(args, :width, 0)
+    height = Keyword.get(args, :height, 0)
+    display = Keyword.get(args, :display, 0)
+
+    port =
+      Port.open({:spawn_executable, to_charlist(executable)}, [
+        {:args, [to_string(display), to_string(width), to_string(height)]},
+        {:packet, 4},
+        :use_stdio,
+        :binary,
+        :exit_status
+      ])
+
+    state = %State{port: port, width: width, height: height}
+    {:ok, state}
+  end
+
+  @impl true
+  def handle_call({:capture, format}, from, state) do
+    case state.request do
+      nil ->
+        new_state = start_capture(state, from, format)
+        {:noreply, new_state}
+
+      _outstanding_request ->
+        {:reply, {:error, :only_one_capture_at_a_time}, state}
+    end
+  end
+
+  @impl true
+  def handle_info({port, {:data, data}}, %{port: port} = state) do
+    handle_port(state, data)
+  end
+
+  @impl true
+  def handle_info({port, {:exit_status, _status}}, %{port: port} = state) do
+    if state.request do
+      {from, _format} = state.request
+      GenServer.reply(from, {:error, :port_crashed})
+    end
+
+    {:stop, :port_crashed}
+  end
+
+  defp handle_port(
+         state,
+         <<display_id::native-32, display_width::native-32, display_height::native-32,
+           capture_width::native-32, capture_height::native-32>>
+       ) do
+    # Capture information is 20 bytes - framebuffers are safely
+    # larger, so there's no chance of an accident here.
+    new_state = %{
+      state
+      | width: capture_width,
+        height: capture_height,
+        display_width: display_width,
+        display_height: display_height,
+        display_id: display_id
+    }
+
+    {:noreply, new_state}
+  end
+
+  defp handle_port(%{request: {from, format}} = state, data) do
+    result_data = process_response(state, format, data)
+
+    result = %RpiFbCapture.Capture{
+      data: result_data,
+      width: state.width,
+      height: state.height,
+      format: format
+    }
+
+    GenServer.reply(from, {:ok, result})
+    {:noreply, %{state | request: nil}}
+  end
+
+  defp start_capture(state, from, format) do
+    cmd = format_id(format)
+    Port.command(state.port, <<cmd>>)
+
+    %{state | request: {from, format}}
+  end
+
+  defp format_id(:ppm), do: 2
+  defp format_id(:rgb24), do: 2
+  defp format_id(:rgb565), do: 3
+  defp format_id(:mono), do: 4
+  defp format_id(:mono_column_scan), do: 5
+
+  defp process_response(state, :ppm, data) do
+    ["P6 #{state.width} #{state.height} 255\n", data]
+  end
+
+  defp process_response(_state, _format, data), do: data
+end
