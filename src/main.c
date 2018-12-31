@@ -193,24 +193,24 @@ static int emit_mono_rotate_flip(const struct capture_info *info)
     int height = info->capture_height;
     int stride = info->capture_stride;
     const uint16_t *image = info->buffer;
-    size_t row_skip = info->capture_stride - info->capture_width;
 
     uint8_t *out = add_packet_length(info->work, width * height / 8);
 
-    for (int x = 0; x < width; x += 8) {
-        for (int y = 0; y < height; y++) {
-            *out = to_1bpp(image[0])
-                   | (to_1bpp(image[stride]) << 1)
-                   | (to_1bpp(image[2 * stride]) << 2)
-                   | (to_1bpp(image[3 * stride]) << 3)
-                   | (to_1bpp(image[4 * stride]) << 4)
-                   | (to_1bpp(image[5 * stride]) << 5)
-                   | (to_1bpp(image[6 * stride]) << 6)
-                   | (to_1bpp(image[7 * stride]) << 7);
-            image ++;
+    for (int x = 0; x < width; x++) {
+        const uint16_t *column = image;
+        for (int y = 0; y < height; y += 8) {
+            *out = to_1bpp(column[0])
+                   | (to_1bpp(column[stride]) << 1)
+                   | (to_1bpp(column[2 * stride]) << 2)
+                   | (to_1bpp(column[3 * stride]) << 3)
+                   | (to_1bpp(column[4 * stride]) << 4)
+                   | (to_1bpp(column[5 * stride]) << 5)
+                   | (to_1bpp(column[6 * stride]) << 6)
+                   | (to_1bpp(column[7 * stride]) << 7);
+            column += 8 * stride;
             out++;
         }
-        image += row_skip;
+        image++;
     }
     write(STDOUT_FILENO, info->work, out - info->work);
     return 0;
