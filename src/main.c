@@ -19,6 +19,10 @@ struct capture_info {
     int capture_height;
     int capture_stride;
 
+    uint16_t mono_threshold_r5;
+    uint16_t mono_threshold_g6;
+    uint16_t mono_threshold_b5;
+
     uint16_t *buffer;
     uint8_t *work;
 
@@ -30,6 +34,15 @@ struct capture_info {
 
     int send_snapshot;
 };
+
+static void set_mono_threshold(struct capture_info *info, uint8_t threshold)
+{
+    // Convert the 8-bit threshold to the number of bits for rgb565 comparisons
+    // and pre-shift.
+    info->mono_threshold_r5 = threshold >> 3;
+    info->mono_threshold_g6 = (threshold >> 2) << 5;
+    info->mono_threshold_b5 = (threshold >> 3) << 11;
+}
 
 static int initialize(uint32_t device, int width, int height, struct capture_info *info)
 {
@@ -65,6 +78,10 @@ static int initialize(uint32_t device, int width, int height, struct capture_inf
     // to be the same width as the display. Otherwise, we'd need to make a call for
     // each line.
     info->capture_stride = info->display_width;
+
+    // This is an arbitrary that looks relatively good for a program that wasn't
+    // designed for monochrome.
+    set_mono_threshold(info, 25);
 
     info->buffer = (uint16_t *) malloc(info->capture_stride * info->capture_height * sizeof(uint16_t));
     info->work = (uint8_t *) malloc(info->capture_width * info->capture_height * 4);
@@ -151,9 +168,11 @@ static int emit_rgb565(const struct capture_info *info)
     return 0;
 }
 
-static inline int to_1bpp(uint16_t rgb565)
+static inline int to_1bpp(const struct capture_info *info, uint16_t rgb565)
 {
-    if (rgb565 > 0)
+    if ((rgb565 & 0b0000000000011111) > info->mono_threshold_r5 ||
+        (rgb565 & 0b0000011111100000) > info->mono_threshold_g6 ||
+        (rgb565 & 0b1111100000000000) > info->mono_threshold_b5)
         return 1;
     else
         return 0;
@@ -170,14 +189,14 @@ static int emit_mono(const struct capture_info *info)
 
     for (int y = 0; y < height; y++) {
         for (int x = 0; x < width; x += 8) {
-            *out = to_1bpp(image[0])
-                   | (to_1bpp(image[1]) << 1)
-                   | (to_1bpp(image[2]) << 2)
-                   | (to_1bpp(image[3]) << 3)
-                   | (to_1bpp(image[4]) << 4)
-                   | (to_1bpp(image[5]) << 5)
-                   | (to_1bpp(image[6]) << 6)
-                   | (to_1bpp(image[7]) << 7);
+            *out = to_1bpp(info, image[0])
+                   | (to_1bpp(info, image[1]) << 1)
+                   | (to_1bpp(info, image[2]) << 2)
+                   | (to_1bpp(info, image[3]) << 3)
+                   | (to_1bpp(info, image[4]) << 4)
+                   | (to_1bpp(info, image[5]) << 5)
+                   | (to_1bpp(info, image[6]) << 6)
+                   | (to_1bpp(info, image[7]) << 7);
             image += 8;
             out++;
         }
@@ -199,14 +218,14 @@ static int emit_mono_rotate_flip(const struct capture_info *info)
     for (int x = 0; x < width; x++) {
         const uint16_t *column = image;
         for (int y = 0; y < height; y += 8) {
-            *out = to_1bpp(column[0])
-                   | (to_1bpp(column[stride]) << 1)
-                   | (to_1bpp(column[2 * stride]) << 2)
-                   | (to_1bpp(column[3 * stride]) << 3)
-                   | (to_1bpp(column[4 * stride]) << 4)
-                   | (to_1bpp(column[5 * stride]) << 5)
-                   | (to_1bpp(column[6 * stride]) << 6)
-                   | (to_1bpp(column[7 * stride]) << 7);
+            *out = to_1bpp(info, column[0])
+                   | (to_1bpp(info, column[stride]) << 1)
+                   | (to_1bpp(info, column[2 * stride]) << 2)
+                   | (to_1bpp(info, column[3 * stride]) << 3)
+                   | (to_1bpp(info, column[4 * stride]) << 4)
+                   | (to_1bpp(info, column[5 * stride]) << 5)
+                   | (to_1bpp(info, column[6 * stride]) << 6)
+                   | (to_1bpp(info, column[7 * stride]) << 7);
             column += 8 * stride;
             out++;
         }
@@ -248,21 +267,25 @@ static void handle_stdin(struct capture_info *info)
     while (info->request_buffer_ix >= 5) {
         // The request format is:
         //
-        // 00 00 00 01 cmd
+        // 00 00 00 len cmd args
         //
         // Commands:
         // 02 -> capture rgb24
         // 03 -> capture rgb565
         // 04 -> capture 1bpp
         // 05 -> capture 1bbp, but scan down the columns
-        //
+        // 06 <threshold> -> set the monochrome conversion threshold (no response)
+
         // NOTE: The request format is what it is since we're using Erlang's built-in 4-byte length
         //       framing for simplicity.
         if (info->request_buffer[0] != 0 ||
                 info->request_buffer[1] != 0 ||
-                info->request_buffer[2] != 0 ||
-                info->request_buffer[3] != 1)
+                info->request_buffer[2] != 0)
             err(EXIT_FAILURE, "Unexpected command: %02x %02x %02x %02x", info->request_buffer[0], info->request_buffer[1], info->request_buffer[2], info->request_buffer[3]);
+
+        uint8_t len = 4 + info->request_buffer[3];
+        if (info->request_buffer_ix < len)
+            break;
 
         switch (info->request_buffer[4]) {
         case 1:
@@ -273,13 +296,17 @@ static void handle_stdin(struct capture_info *info)
             info->send_snapshot = info->request_buffer[4];
             break;
 
+        case 6:
+            set_mono_threshold(info, info->request_buffer[5]);
+            break;
+
         default: // ignore
             break;
         }
-        info->request_buffer_ix -= 5;
+        info->request_buffer_ix -= len;
 
         if (info->request_buffer_ix > 0)
-            memmove(info->request_buffer, info->request_buffer + 5, info->request_buffer_ix);
+            memmove(info->request_buffer, info->request_buffer + len, info->request_buffer_ix - len);
     }
 }
 

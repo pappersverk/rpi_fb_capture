@@ -64,6 +64,17 @@ defmodule RpiFbCapture do
     GenServer.call(server, {:capture, format})
   end
 
+  @doc """
+  Adjust the value that pixels are on for monochromatic conversion.
+
+  The threshold should be 8-bits. The capture buffer is rgb565, so the
+  threshold will be reduced to 5 or 6 bits for the actual comparisons.
+  """
+  @spec set_mono_threshold(GenServer.server(), byte()) :: :ok | {:error, atom()}
+  def set_mono_threshold(server, threshold) do
+    GenServer.call(server, {:mono_threshold, threshold})
+  end
+
   # Server (callbacks)
 
   @impl true
@@ -97,6 +108,12 @@ defmodule RpiFbCapture do
       _outstanding_request ->
         {:reply, {:error, :only_one_capture_at_a_time}, state}
     end
+  end
+
+  @impl true
+  def handle_call({:mono_threshold, threshold}, _from, state) do
+    Port.command(state.port, port_cmd(:mono_threshold, threshold))
+    {:reply, :ok, state}
   end
 
   @impl true
@@ -148,17 +165,17 @@ defmodule RpiFbCapture do
   end
 
   defp start_capture(state, from, format) do
-    cmd = format_id(format)
-    Port.command(state.port, <<cmd>>)
+    Port.command(state.port, port_cmd(:capture, format))
 
     %{state | request: {from, format}}
   end
 
-  defp format_id(:ppm), do: 2
-  defp format_id(:rgb24), do: 2
-  defp format_id(:rgb565), do: 3
-  defp format_id(:mono), do: 4
-  defp format_id(:mono_column_scan), do: 5
+  defp port_cmd(:capture, :ppm), do: <<2>>
+  defp port_cmd(:capture, :rgb24), do: <<2>>
+  defp port_cmd(:capture, :rgb565), do: <<3>>
+  defp port_cmd(:capture, :mono), do: <<4>>
+  defp port_cmd(:capture, :mono_column_scan), do: <<5>>
+  defp port_cmd(:mono_threshold, value), do: <<6, value>>
 
   defp process_response(state, :ppm, data) do
     ["P6 #{state.width} #{state.height} 255\n", data]
