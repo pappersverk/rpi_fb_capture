@@ -75,6 +75,24 @@ defmodule RpiFbCapture do
     GenServer.call(server, {:mono_threshold, threshold})
   end
 
+  @doc """
+  Helper method for saving a screen capture to a file
+
+  Example:
+
+  ```elixir
+  iex> {:ok, cap} = RpiFbCapture.start_link()
+  iex> RpiRbCapture(cap, "/tmp/capture.ppm")
+  :ok
+  ```
+  """
+  @spec save(GenServer.server(), Path.t(), format()) :: :ok | {:error, atom()}
+  def save(server, path, format \\ :ppm) do
+    with {:ok, cap} = capture(server, format) do
+      File.write(path, cap.data)
+    end
+  end
+
   # Server (callbacks)
 
   @impl true
