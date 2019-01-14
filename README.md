@@ -65,5 +65,9 @@ iex> File.write("/tmp/capture.ppm", frame.data)
 :ok
 ```
 
+Normally you'll be sending the captured data somewhere or processing it. If you
+do find that you're just taking one-off screenshots, take a look at
+`RpiFbCapture.save/2` to save some typing.
+
 If you're using Nerves, use sftp to copy the file off the device and view or if
 on Raspbian, view it locally.
