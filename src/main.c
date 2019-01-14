@@ -171,8 +171,8 @@ static int emit_rgb565(const struct capture_info *info)
 static inline int to_1bpp(const struct capture_info *info, uint16_t rgb565)
 {
     if ((rgb565 & 0b0000000000011111) > info->mono_threshold_r5 ||
-        (rgb565 & 0b0000011111100000) > info->mono_threshold_g6 ||
-        (rgb565 & 0b1111100000000000) > info->mono_threshold_b5)
+            (rgb565 & 0b0000011111100000) > info->mono_threshold_g6 ||
+            (rgb565 & 0b1111100000000000) > info->mono_threshold_b5)
         return 1;
     else
         return 0;
