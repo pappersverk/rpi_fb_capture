@@ -4,7 +4,7 @@ defmodule RpiFbCapture.MixProject do
   def project do
     [
       app: :rpi_fb_capture,
-      version: "0.1.0",
+      version: "0.2.0",
       elixir: "~> 1.7",
       description: description(),
       package: package(),
