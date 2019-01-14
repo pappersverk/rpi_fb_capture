@@ -5,12 +5,12 @@ defmodule RpiFbCapture.Capture do
   defstruct data: [],
             width: 0,
             height: 0,
-            format: nil
+            format: :rgb565
 
   @type t :: %__MODULE__{
           data: iodata(),
           width: non_neg_integer(),
-          height: non_neg_integer,
+          height: non_neg_integer(),
           format: RpiFbCapture.format()
         }
 end

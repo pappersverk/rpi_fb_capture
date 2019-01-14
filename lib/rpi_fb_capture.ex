@@ -59,7 +59,8 @@ defmodule RpiFbCapture do
   * `:mono` - Raw 1-bpp data
   * `:mono_column_scan` - Raw 1-bpp data, but scanned down columns
   """
-  @spec capture(GenServer.server(), format()) :: {:ok, iodata()} | {:error, atom()}
+  @spec capture(GenServer.server(), format()) ::
+          {:ok, RpiFbCapture.Capture.t()} | {:error, atom()}
   def capture(server, format) do
     GenServer.call(server, {:capture, format})
   end
