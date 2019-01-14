@@ -79,7 +79,7 @@ static int initialize(uint32_t device, int width, int height, struct capture_inf
     // each line.
     info->capture_stride = info->display_width;
 
-    // This is an arbitrary that looks relatively good for a program that wasn't
+    // This is an arbitrary value that looks relatively good for a program that wasn't
     // designed for monochrome.
     set_mono_threshold(info, 25);
 
