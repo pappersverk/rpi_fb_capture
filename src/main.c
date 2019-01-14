@@ -139,9 +139,9 @@ static int emit_rgb24(const struct capture_info *info)
     for (int y = 0; y < height; y++) {
         for (int x = 0; x < width; x++) {
             uint16_t pixel = image[x];
-            out[0] = (pixel >> 11);
-            out[1] = (pixel >> 5) & 0x3f;
-            out[2] = pixel & 0x1f;
+            out[0] = (pixel >> 11) << 3;
+            out[1] = ((pixel >> 5) & 0x3f) << 2;
+            out[2] = (pixel & 0x1f) << 3;
             out += 3;
         }
         image += info->capture_stride;
