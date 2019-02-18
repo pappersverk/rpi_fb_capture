@@ -1,9 +1,21 @@
-# Variables to override
+# Makefile for building the port binary
+#
+# Makefile targets:
+#
+# all/install   build and install
+# clean         clean build products and intermediates
+#
+# Variables to override:
+#
+# MIX_COMPILE_PATH path to the build's ebin directory
 #
 # CC            C compiler
 # CROSSCOMPILE	crosscompiler prefix, if any
 # CFLAGS	compiler flags for compiling all C files
 # LDFLAGS	linker flags for linking all binaries
+
+PREFIX = $(MIX_COMPILE_PATH)/../priv
+BUILD  = $(MIX_COMPILE_PATH)/../obj
 
 TARGET_CFLAGS = $(shell src/detect_target.sh)
 
@@ -19,12 +31,12 @@ ifeq ($(CROSSCOMPILE),)
         $(warning If on Raspbian, I haven't tried this yet and there's probably an include path that's needed.)
         $(warning Skipping C compilation.)
     else
-        DEFAULT_TARGETS = priv/rpi_fb_capture
+        BIN = $(PREFIX)/rpi_fb_capture
     endif
     endif
 else
 # Crosscompiled build
-DEFAULT_TARGETS = priv/rpi_fb_capture
+BIN = $(PREFIX)/rpi_fb_capture
 endif
 
 LDFLAGS += -lm -lbcm_host -lvchostif
@@ -35,22 +47,32 @@ CFLAGS += $(TARGET_CFLAGS)
 # Enable for debug messages
 # CFLAGS += -DDEBUG
 
-SRCS = src/main.c
+SRC = $(wildcard src/*.c)
+HEADERS = $(wildcard src/*.h)
+OBJ = $(SRC:src/%.c=$(BUILD)/%.o)
 
-.PHONY: all clean
+calling_from_make:
+	mix compile
 
-all: priv $(DEFAULT_TARGETS)
+all: install
 
-priv:
-	mkdir -p priv
+install: $(PREFIX) $(BUILD) $(BIN)
 
-priv/rpi_fb_capture: priv $(SRCS)
-	$(CC) $(CFLAGS) -o $@ $(SRCS) $(LDFLAGS)
+$(OBJ): $(HEADERS) Makefile
+
+$(BUILD)/%.o: src/%.c
+	$(CC) -c $(CFLAGS) -o $@ $<
+
+$(BIN): $(OBJ)
+	$(CC) -o $@ $(ERL_LDFLAGS) $(LDFLAGS) $^
+
+$(PREFIX) $(BUILD):
+	mkdir -p $@
 
 clean:
-	$(RM) -rf priv/rpi_fb_capture src/*.o
+	$(RM) $(BIN) $(BUILD)/*.o
 
 format:
 	astyle -n $(SRCS)
 
-.PHONY: all clean format
+.PHONY: all clean calling_from_make install format

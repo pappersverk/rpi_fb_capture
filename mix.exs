@@ -15,15 +15,15 @@ defmodule RpiFbCapture.MixProject do
       docs: [extras: ["README.md"], main: "readme"],
       aliases: [format: [&format_c/1, "format"]],
       start_permanent: Mix.env() == :prod,
+      build_embedded: true,
+      dialyzer: [
+        flags: [:unmatched_returns, :error_handling, :race_conditions, :underspecs]
+      ],
       deps: deps()
     ]
   end
 
-  def application do
-    [
-      extra_applications: [:logger]
-    ]
-  end
+  def application, do: []
 
   defp description do
     "Capture the Raspberry Pi's framebuffer"
@@ -47,7 +47,7 @@ defmodule RpiFbCapture.MixProject do
 
   defp deps do
     [
-      {:elixir_make, "~> 0.4", runtime: false},
+      {:elixir_make, "~> 0.5", runtime: false},
       {:ex_doc, "~> 0.11", only: :dev, runtime: false},
       {:dialyxir, "1.0.0-rc.4", only: :dev, runtime: false}
     ]
