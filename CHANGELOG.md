@@ -1,5 +1,10 @@
 # Changelog
 
+## v0.2.1
+
+* Improvements
+  * Move C build products under `_build`
+
 ## v0.2.0
 
 * New features
