@@ -97,7 +97,6 @@ defmodule RpiFbCapture do
   # Server (callbacks)
 
   @impl true
-  @spec init(keyword()) :: {:ok, any()}
   def init(args) do
     executable = Application.app_dir(:rpi_fb_capture, ["priv", "rpi_fb_capture"])
     width = Keyword.get(args, :width, 0)
