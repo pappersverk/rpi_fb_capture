@@ -26,11 +26,11 @@ defaults: &defaults
   working_directory: ~/repo
 
 jobs:
-  build_elixir_1_7_otp_21:
+  build_elixir_1_8_otp_21:
     docker:
-      - image: erlang:21.1
+      - image: erlang:21.2
         environment:
-          ELIXIR_VERSION: 1.7.4-otp-21
+          ELIXIR_VERSION: 1.8.1-otp-21
           LC_ALL: C.UTF-8
     <<: *defaults
     steps:
@@ -56,4 +56,4 @@ workflows:
   version: 2
   build_test:
     jobs:
-      - build_elixir_1_7_otp_21
+      - build_elixir_1_8_otp_21
