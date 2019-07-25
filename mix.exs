@@ -1,10 +1,12 @@
 defmodule RpiFbCapture.MixProject do
   use Mix.Project
 
+  @version "0.2.1"
+
   def project do
     [
       app: :rpi_fb_capture,
-      version: "0.2.1",
+      version: @version,
       elixir: "~> 1.7",
       description: description(),
       package: package(),
@@ -12,7 +14,7 @@ defmodule RpiFbCapture.MixProject do
       compilers: [:elixir_make | Mix.compilers()],
       make_targets: ["all"],
       make_clean: ["clean"],
-      docs: [extras: ["README.md"], main: "readme"],
+      docs: docs(),
       aliases: [format: [&format_c/1, "format"]],
       start_permanent: Mix.env() == :prod,
       build_embedded: true,
@@ -45,11 +47,20 @@ defmodule RpiFbCapture.MixProject do
     }
   end
 
+  defp docs do
+    [
+      extras: ["README.md"],
+      main: "readme",
+      source_ref: "v#{@version}",
+      source_url: "https://github.com/fhunleth/rpi_fb_capture"
+    ]
+  end
+
   defp deps do
     [
       {:elixir_make, "~> 0.5", runtime: false},
       {:ex_doc, "~> 0.11", only: :dev, runtime: false},
-      {:dialyxir, "1.0.0-rc.4", only: :dev, runtime: false}
+      {:dialyxir, "~> 1.0.0-rc.4", only: :dev, runtime: false}
     ]
   end
 
