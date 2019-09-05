@@ -17,6 +17,11 @@ static void set_mono_threshold(struct capture_info *info, uint8_t threshold)
     info->mono_threshold_b5 = (threshold >> 3) << 11;
 }
 
+static void set_dithering(struct capture_info *info, uint8_t value)
+{
+    info->dithering = value;
+}
+
 static int initialize(uint32_t device, int width, int height, struct capture_info *info)
 {
     memset(info, 0, sizeof(*info));
@@ -30,6 +35,7 @@ static int initialize(uint32_t device, int width, int height, struct capture_inf
 
     info->buffer = (uint16_t *) malloc(info->capture_stride * info->capture_height * sizeof(uint16_t));
     info->work = (uint8_t *) malloc(info->capture_width * info->capture_height * 4);
+    info->dithering_buffer = (int16_t *) malloc(info->capture_width * info->capture_height * sizeof(int16_t));
 
     return 0;
 }
@@ -39,6 +45,7 @@ static void finalize(struct capture_info *info)
 {
     free(info->buffer);
     free(info->work);
+    free(info->dithering_buffer);
 
     capture_finalize(info);
 }
@@ -108,6 +115,59 @@ static inline int to_1bpp(const struct capture_info *info, uint16_t rgb565)
         return 0;
 }
 
+static inline uint8_t get_greyscale_from_rgb565(uint16_t color) {
+  uint8_t r = ((color & 0xF800) >> 11) << 3;
+  uint8_t g = ((color & 0x7E0) >> 5) << 2;
+  uint8_t b = ((color & 0x1F)) << 3;
+
+  // Fast greyscale conversion
+  return  ((r * 77) + (g * 151) + (b * 30)) >> 8;
+}
+
+static void apply_dithering(const struct capture_info *info) {
+    uint8_t threshold;
+    uint8_t min = 255, max = 0;
+    int width = info->capture_width;
+    int height = info->capture_height;
+    int stride = info->capture_stride;
+    const uint16_t *image = info->buffer;
+    int16_t * buffer = info->dithering_buffer;
+
+    // Calc greyscale and calculate threshold
+    for (int y = 0; y < height; y++) {
+      for (int x = 0; x < width; x++) {
+        uint16_t pixel_offset = y * width + x;
+
+        buffer[pixel_offset] = get_greyscale_from_rgb565(image[x]);
+
+        min = buffer[pixel_offset] < min ? buffer[pixel_offset] : min;
+        max = buffer[pixel_offset] > max ? buffer[pixel_offset] : max;
+      }
+
+      image += stride;
+    }
+
+    threshold = (min + max) / 2;
+
+    // Apply Floyd-Steinberg dithering
+    for (int y = 0; y < height; y++) {
+      for (int x = 0; x < width; x++) {
+        uint16_t pixel_offset = y * width + x;
+        int16_t old_pixel = buffer[pixel_offset];
+        int16_t new_pixel = old_pixel < threshold ? 0 : 255;
+        int16_t q_err = old_pixel - new_pixel;
+
+        buffer[pixel_offset] = new_pixel;
+
+        if (x + 1 < width) buffer[pixel_offset + 1] += (q_err * 7) >> 4;
+        if (y + 1 == height) continue;
+        if (x > 0) buffer[pixel_offset + width - 1] += (q_err * 3) >> 4;
+        buffer[pixel_offset + width] += (q_err * 5) >> 4;
+        if (x + 1 < width) buffer[pixel_offset + width + 1] += (q_err * 1) >> 4;
+      }
+    }
+}
+
 static int emit_mono(const struct capture_info *info)
 {
     int width = info->capture_width;
@@ -165,6 +225,66 @@ static int emit_mono_rotate_flip(const struct capture_info *info)
     return 0;
 }
 
+static int emit_mono_dithering(const struct capture_info *info)
+{
+    int width = info->capture_width;
+    int height = info->capture_height;
+    const int16_t * buffer = info->dithering_buffer;
+    uint8_t *out = add_packet_length(info->work, width * height / 8);
+
+    apply_dithering(info);
+
+    for (int y = 0; y < height; y++) {
+      for (int x = 0; x < width; x += 8) {
+        *out = ((buffer[y * width + x] != 0 ? 1 : 0))
+          |  ((buffer[1] != 0 ? 1 : 0) << 1)
+          |  ((buffer[2] != 0 ? 1 : 0) << 2)
+          |  ((buffer[3] != 0 ? 1 : 0) << 3)
+          |  ((buffer[4] != 0 ? 1 : 0) << 4)
+          |  ((buffer[5] != 0 ? 1 : 0) << 5)
+          |  ((buffer[6] != 0 ? 1 : 0) << 6)
+          |  ((buffer[7] != 0 ? 1 : 0) << 7);
+
+        buffer += 8;
+        out++;
+      }
+    }
+
+    write(STDOUT_FILENO, info->work, out - info->work);
+    return 0;
+}
+
+static int emit_mono_rotate_flip_dithering(const struct capture_info *info)
+{
+    int width = info->capture_width;
+    int height = info->capture_height;
+    const int16_t * buffer = info->dithering_buffer;
+    uint8_t *out = add_packet_length(info->work, width * height / 8);
+
+    apply_dithering(info);
+
+    for (uint16_t x = 0; x < width; x++) {
+      const uint16_t *column = buffer;
+      for (uint16_t y = 0; y < height; y += 8) {
+        *out = ((column[0] != 0 ? 1 : 0))
+            |  ((column[width] != 0 ? 1 : 0) << 1)
+            |  ((column[width * 2] != 0 ? 1 : 0) << 2)
+            |  ((column[width * 3] != 0 ? 1 : 0) << 3)
+            |  ((column[width * 4] != 0 ? 1 : 0) << 4)
+            |  ((column[width * 5] != 0 ? 1 : 0) << 5)
+            |  ((column[width * 6] != 0 ? 1 : 0) << 6)
+            |  ((column[width * 7] != 0 ? 1 : 0) << 7);
+
+        column += 8 * width;
+        out++;
+      }
+      buffer++;
+    }
+
+    write(STDOUT_FILENO, info->work, out - info->work);
+    return 0;
+}
+
 static int emit_capture_info(const struct capture_info *info)
 {
     uint8_t *out = add_packet_length(info->work, 36);
@@ -207,6 +327,7 @@ static void handle_stdin(struct capture_info *info)
         // 04 -> capture 1bpp
         // 05 -> capture 1bbp, but scan down the columns
         // 06 <threshold> -> set the monochrome conversion threshold (no response)
+        // 07 <dithering> -> enable/disable dithering (no response)
 
         // NOTE: The request format is what it is since we're using Erlang's built-in 4-byte length
         //       framing for simplicity.
@@ -232,6 +353,10 @@ static void handle_stdin(struct capture_info *info)
             set_mono_threshold(info, info->request_buffer[5]);
             break;
 
+        case 7:
+            set_dithering(info, info->request_buffer[5]);
+            break;
+
         default: // ignore
             break;
         }
@@ -251,9 +376,9 @@ static int send_snapshot(struct capture_info *info)
     case 3:
         return emit_rgb565(info);
     case 4:
-        return emit_mono(info);
+        return info->dithering ? emit_mono_dithering(info) : emit_mono(info);
     case 5:
-        return emit_mono_rotate_flip(info);
+        return info->dithering ? emit_mono_rotate_flip_dithering(info) : emit_mono_rotate_flip(info);
     default:
         return 0;
     }

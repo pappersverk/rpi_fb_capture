@@ -78,6 +78,14 @@ defmodule RpiFbCapture do
   end
 
   @doc """
+  Enable/disable dithering
+  """
+  @spec set_dithering(GenServer.server(), byte()) :: :ok | {:error, atom()}
+  def set_dithering(server, enabled?) do
+    GenServer.call(server, {:dithering, enabled?})
+  end
+
+  @doc """
   Helper method for saving a screen capture to a file
 
   Example:
@@ -155,6 +163,12 @@ defmodule RpiFbCapture do
   end
 
   @impl true
+  def handle_call({:dithering, enabled?}, _from, state) do
+    Port.command(state.port, port_cmd(:dithering, enabled?))
+    {:reply, :ok, state}
+  end
+
+  @impl true
   def handle_info({port, {:data, data}}, %{port: port} = state) do
     handle_port(state, data)
   end
@@ -219,6 +233,8 @@ defmodule RpiFbCapture do
   defp port_cmd(:capture, :mono), do: <<4>>
   defp port_cmd(:capture, :mono_column_scan), do: <<5>>
   defp port_cmd(:mono_threshold, value), do: <<6, value>>
+  defp port_cmd(:dithering, true), do: <<7, 1>>
+  defp port_cmd(:dithering, _), do: <<7, 0>>
 
   defp process_response(state, :ppm, data) do
     ["P6 #{state.width} #{state.height} 255\n", data]
