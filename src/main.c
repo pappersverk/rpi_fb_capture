@@ -7,9 +7,7 @@
 #include <unistd.h>
 
 #include "capture.h"
-
-#define DITHERING_NONE              0
-#define DITHERING_FLOYD_STEINBERG   1
+#include "dithering.h"
 
 static void set_mono_threshold(struct capture_info *info, uint8_t threshold)
 {
@@ -118,74 +116,6 @@ static inline int to_1bpp(const struct capture_info *info, uint16_t rgb565)
         return 0;
 }
 
-static inline uint8_t get_greyscale_from_rgb565(uint16_t color) {
-  uint8_t r = ((color & 0xF800) >> 11) << 3;
-  uint8_t g = ((color & 0x7E0) >> 5) << 2;
-  uint8_t b = ((color & 0x1F)) << 3;
-
-  // Fast greyscale conversion
-  return  ((r * 77) + (g * 151) + (b * 30)) >> 8;
-}
-
-static void apply_dithering_floyd_steingberg(const struct capture_info *info) {
-    uint8_t threshold;
-    uint8_t min = 255, max = 0;
-    int width = info->capture_width;
-    int height = info->capture_height;
-    int stride = info->capture_stride;
-    const uint16_t *image = info->buffer;
-    int16_t * buffer = info->dithering_buffer;
-
-    // Calc greyscale and calculate threshold
-    for (int y = 0; y < height; y++) {
-      for (int x = 0; x < width; x++) {
-        uint16_t pixel_offset = y * width + x;
-
-        buffer[pixel_offset] = get_greyscale_from_rgb565(image[x]);
-
-        min = buffer[pixel_offset] < min ? buffer[pixel_offset] : min;
-        max = buffer[pixel_offset] > max ? buffer[pixel_offset] : max;
-      }
-
-      image += stride;
-    }
-
-    threshold = (min + max) / 2;
-
-    // Apply Floyd-Steinberg dithering
-    for (int y = 0; y < height; y++) {
-      for (int x = 0; x < width; x++) {
-        uint16_t pixel_offset = y * width + x;
-        int16_t old_pixel = buffer[pixel_offset];
-        int16_t new_pixel = old_pixel < threshold ? 0 : 255;
-        int16_t q_err = old_pixel - new_pixel;
-
-        buffer[pixel_offset] = new_pixel;
-
-        if (x + 1 < width) buffer[pixel_offset + 1] += (q_err * 7) >> 4;
-        if (y + 1 == height) continue;
-        if (x > 0) buffer[pixel_offset + width - 1] += (q_err * 3) >> 4;
-        buffer[pixel_offset + width] += (q_err * 5) >> 4;
-        if (x + 1 < width) buffer[pixel_offset + width + 1] += (q_err * 1) >> 4;
-      }
-    }
-}
-
-static void apply_dithering(const struct capture_info *info) {
-    switch (info->dithering) {
-        case DITHERING_NONE:
-            break;
-
-        case DITHERING_FLOYD_STEINBERG:
-            apply_dithering_floyd_steingberg(info);
-            break;
-
-        default:
-            errx(EXIT_FAILURE, "Unknown dithering algorithm");
-            break;
-    }
-}
-
 static int emit_mono(const struct capture_info *info)
 {
     int width = info->capture_width;
@@ -212,7 +142,7 @@ static int emit_mono(const struct capture_info *info)
             image += row_skip;
         }
     } else {
-        apply_dithering(info);
+        dithering_apply(info);
 
         for (int y = 0; y < height; y++) {
             for (int x = 0; x < width; x += 8) {
@@ -262,7 +192,7 @@ static int emit_mono_rotate_flip(const struct capture_info *info)
             image++;
         }
     } else {
-        apply_dithering(info);
+        dithering_apply(info);
 
         for (uint16_t x = 0; x < width; x++) {
             const uint16_t *column = dithering_buffer;

@@ -50,7 +50,7 @@ SRC = src/capture_dispmanx.c
 LDFLAGS += -lbcm_host -lvchostif
 endif
 
-SRC += src/main.c
+SRC += src/main.c src/dithering.c
 HEADERS = $(wildcard src/*.h)
 OBJ = $(SRC:src/%.c=$(BUILD)/%.o)
 BIN = $(PREFIX)/rpi_fb_capture

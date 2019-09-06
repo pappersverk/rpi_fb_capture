@@ -10,7 +10,7 @@ defmodule RpiFbCapture do
           | {:height, non_neg_integer()}
           | {:display, non_neg_integer()}
   @type format :: :ppm | :rgb24 | :rgb565 | :mono | :mono_column_scan
-  @type dithering :: :none | :floyd_steinberg
+  @type dithering :: :none | :floyd_steinberg | :sierra | :sierra_2row | :sierra_lite
 
   defmodule State do
     @moduledoc false
@@ -83,8 +83,11 @@ defmodule RpiFbCapture do
 
   Algorithms include:
 
-  * `:none` - No dithering s applied
+  * `:none` - No dithering applied
   * `:floyd_steinberg` - Floyd–Steinberg
+  * `:sierra` - Sierra (also called Sierra-3)
+  * `:sierra_2row` - Two-row Sierra
+  * `:sierra_lite` - Sierra Lite
   """
   @spec set_dithering(GenServer.server(), dithering()) :: :ok | {:error, atom()}
   def set_dithering(server, algorithm) do
@@ -241,6 +244,9 @@ defmodule RpiFbCapture do
   defp port_cmd(:mono_threshold, value), do: <<6, value>>
   defp port_cmd(:dithering, :none), do: <<7, 0>>
   defp port_cmd(:dithering, :floyd_steinberg), do: <<7, 1>>
+  defp port_cmd(:dithering, :sierra), do: <<7, 2>>
+  defp port_cmd(:dithering, :sierra_2row), do: <<7, 3>>
+  defp port_cmd(:dithering, :sierra_lite), do: <<7, 4>>
 
   defp process_response(state, :ppm, data) do
     ["P6 #{state.width} #{state.height} 255\n", data]

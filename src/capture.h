@@ -29,7 +29,7 @@ struct capture_info {
     int send_snapshot;
 
     int dithering;
-    uint8_t *dithering_buffer;
+    int16_t *dithering_buffer;
 };
 
 int capture_initialize(uint32_t device, int width, int height, struct capture_info *info);
