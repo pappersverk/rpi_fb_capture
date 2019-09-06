@@ -10,6 +10,7 @@ defmodule RpiFbCapture do
           | {:height, non_neg_integer()}
           | {:display, non_neg_integer()}
   @type format :: :ppm | :rgb24 | :rgb565 | :mono | :mono_column_scan
+  @type dithering :: :none | :floyd_steinberg
 
   defmodule State do
     @moduledoc false
@@ -78,11 +79,16 @@ defmodule RpiFbCapture do
   end
 
   @doc """
-  Enable/disable dithering
+  Set dithering algorithm.
+
+  Algorithms include:
+
+  * `:none` - No dithering s applied
+  * `:floyd_steinberg` - Floyd–Steinberg
   """
-  @spec set_dithering(GenServer.server(), byte()) :: :ok | {:error, atom()}
-  def set_dithering(server, enabled?) do
-    GenServer.call(server, {:dithering, enabled?})
+  @spec set_dithering(GenServer.server(), dithering()) :: :ok | {:error, atom()}
+  def set_dithering(server, algorithm) do
+    GenServer.call(server, {:dithering, algorithm})
   end
 
   @doc """
@@ -163,8 +169,8 @@ defmodule RpiFbCapture do
   end
 
   @impl true
-  def handle_call({:dithering, enabled?}, _from, state) do
-    Port.command(state.port, port_cmd(:dithering, enabled?))
+  def handle_call({:dithering, algorithm}, _from, state) do
+    Port.command(state.port, port_cmd(:dithering, algorithm))
     {:reply, :ok, state}
   end
 
@@ -233,8 +239,8 @@ defmodule RpiFbCapture do
   defp port_cmd(:capture, :mono), do: <<4>>
   defp port_cmd(:capture, :mono_column_scan), do: <<5>>
   defp port_cmd(:mono_threshold, value), do: <<6, value>>
-  defp port_cmd(:dithering, true), do: <<7, 1>>
-  defp port_cmd(:dithering, _), do: <<7, 0>>
+  defp port_cmd(:dithering, :none), do: <<7, 0>>
+  defp port_cmd(:dithering, :floyd_steinberg), do: <<7, 1>>
 
   defp process_response(state, :ppm, data) do
     ["P6 #{state.width} #{state.height} 255\n", data]
