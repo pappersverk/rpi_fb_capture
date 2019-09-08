@@ -7,15 +7,15 @@
 #
 # Variables to override:
 #
-# MIX_COMPILE_PATH path to the build's ebin directory
+# MIX_APP_PATH  path to the build directory
 #
 # CC            C compiler
 # CROSSCOMPILE	crosscompiler prefix, if any
 # CFLAGS	compiler flags for compiling all C files
 # LDFLAGS	linker flags for linking all binaries
 
-PREFIX = $(MIX_COMPILE_PATH)/../priv
-BUILD  = $(MIX_COMPILE_PATH)/../obj
+PREFIX = $(MIX_APP_PATH)/priv
+BUILD  = $(MIX_APP_PATH)/obj
 
 TARGET_CFLAGS = $(shell src/detect_target.sh)
 
@@ -70,7 +70,7 @@ $(PREFIX) $(BUILD):
 	mkdir -p $@
 
 clean:
-	$(RM) $(BIN) $(BUILD)/*.o
+	$(RM) $(BIN) $(OBJ)
 
 format:
 	astyle \
