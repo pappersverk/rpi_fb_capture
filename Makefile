@@ -73,6 +73,17 @@ clean:
 	$(RM) $(BIN) $(OBJ)
 
 format:
-	astyle -n $(SRCS)
+	astyle \
+	    --style=kr \
+	    --indent=spaces=4 \
+	    --align-pointer=name \
+	    --align-reference=name \
+	    --convert-tabs \
+	    --attach-namespaces \
+	    --max-code-length=100 \
+	    --max-instatement-indent=120 \
+	    --pad-header \
+	    --pad-oper \
+	    $(SRC)
 
 .PHONY: all clean calling_from_make install format
