@@ -1,6 +1,6 @@
 # RpiFbCapture
 
-[![CircleCI](https://circleci.com/gh/fhunleth/rpi_fb_capture.svg?style=svg)](https://circleci.com/gh/fhunleth/rpi_fb_capture)
+[![CircleCI](https://circleci.com/gh/pappersverk/rpi_fb_capture.svg?style=svg)](https://circleci.com/gh/pappersverk/rpi_fb_capture)
 [![Hex version](https://img.shields.io/hexpm/v/rpi_fb_capture.svg "Hex version")](https://hex.pm/packages/rpi_fb_capture)
 
 This library can capture the Raspberry Pi's framebuffer. This lets you do things

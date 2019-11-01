@@ -2,7 +2,7 @@ defmodule RpiFbCapture.MixProject do
   use Mix.Project
 
   @version "0.2.1"
-  @source_url "https://github.com/fhunleth/rpi_fb_capture"
+  @source_url "https://github.com/pappersverk/rpi_fb_capture"
 
   def project do
     [
