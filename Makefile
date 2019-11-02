@@ -64,7 +64,7 @@ $(BUILD)/%.o: src/%.c
 	$(CC) -c $(CFLAGS) -o $@ $<
 
 $(BIN): $(OBJ)
-	$(CC) -o $@ $(ERL_LDFLAGS) $(LDFLAGS) $^
+	$(CC) -o $@ $^ $(ERL_LDFLAGS) $(LDFLAGS)
 
 $(PREFIX) $(BUILD):
 	mkdir -p $@
