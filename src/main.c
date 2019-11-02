@@ -119,6 +119,12 @@ static int capture(struct capture_info *info)
     return 0;
 }
 
+static void write_stdout(void *buffer, size_t len)
+{
+    if (write(STDOUT_FILENO, buffer, len) != (ssize_t) len)
+        err(EXIT_FAILURE, "write");
+}
+
 static uint8_t *add_packet_length(uint8_t *out, uint32_t size)
 {
     out[0] = (size >> 24);
@@ -146,7 +152,7 @@ static int emit_rgb24(const struct capture_info *info)
         }
         image += info->capture_stride;
     }
-    write(STDOUT_FILENO, info->work, out - info->work);
+    write_stdout(info->work, out - info->work);
     return 0;
 }
 
@@ -164,15 +170,15 @@ static int emit_rgb565(const struct capture_info *info)
         out += width_bytes;
         image += info->capture_stride;
     }
-    write(STDOUT_FILENO, info->work, out - info->work);
+    write_stdout(info->work, out - info->work);
     return 0;
 }
 
 static inline int to_1bpp(const struct capture_info *info, uint16_t rgb565)
 {
-    if ((rgb565 & 0b0000000000011111) > info->mono_threshold_r5 ||
-            (rgb565 & 0b0000011111100000) > info->mono_threshold_g6 ||
-            (rgb565 & 0b1111100000000000) > info->mono_threshold_b5)
+    if ((rgb565 & 0x001f) > info->mono_threshold_r5 ||
+            (rgb565 & 0x07e0) > info->mono_threshold_g6 ||
+            (rgb565 & 0xf800) > info->mono_threshold_b5)
         return 1;
     else
         return 0;
@@ -202,7 +208,7 @@ static int emit_mono(const struct capture_info *info)
         }
         image += row_skip;
     }
-    write(STDOUT_FILENO, info->work, out - info->work);
+    write_stdout(info->work, out - info->work);
     return 0;
 }
 
@@ -231,7 +237,7 @@ static int emit_mono_rotate_flip(const struct capture_info *info)
         }
         image++;
     }
-    write(STDOUT_FILENO, info->work, out - info->work);
+    write_stdout(info->work, out - info->work);
     return 0;
 }
 
@@ -248,7 +254,7 @@ static int emit_capture_info(const struct capture_info *info)
     out += sizeof(uint32_t);
     memcpy(out, &info->capture_height, sizeof(uint32_t));
     out += sizeof(uint32_t);
-    write(STDOUT_FILENO, info->work, out - info->work);
+    write_stdout(info->work, out - info->work);
     return 0;
 }
 
