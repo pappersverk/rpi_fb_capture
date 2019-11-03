@@ -2,6 +2,7 @@ defmodule RpiFbCapture.MixProject do
   use Mix.Project
 
   @version "0.2.1"
+  @source_url "https://github.com/pappersverk/rpi_fb_capture"
 
   def project do
     [
@@ -10,7 +11,7 @@ defmodule RpiFbCapture.MixProject do
       elixir: "~> 1.7",
       description: description(),
       package: package(),
-      source_url: "https://github.com/fhunleth/rpi_fb_capture",
+      source_url: @source_url,
       compilers: [:elixir_make | Mix.compilers()],
       make_targets: ["all"],
       make_clean: ["clean"],
@@ -43,7 +44,7 @@ defmodule RpiFbCapture.MixProject do
         "Makefile"
       ],
       licenses: ["Apache-2.0"],
-      links: %{"GitHub" => "https://github.com/fhunleth/rpi_fb_capture"}
+      links: %{"GitHub" => @source_url}
     }
   end
 
@@ -52,7 +53,7 @@ defmodule RpiFbCapture.MixProject do
       extras: ["README.md"],
       main: "readme",
       source_ref: "v#{@version}",
-      source_url: "https://github.com/fhunleth/rpi_fb_capture"
+      source_url: @source_url
     ]
   end
 
