@@ -20,6 +20,7 @@ defmodule RpiFbCaptureTest do
   end
 
   defp generates_expected(server, format, dither \\ :none) do
+    :ok = RpiFbCapture.set_dithering(server, dither)
     {:ok, frame} = RpiFbCapture.capture(server, format)
 
     assert frame.format == format
@@ -58,5 +59,21 @@ defmodule RpiFbCaptureTest do
 
   test "generates expected mono_column_scan", %{server: server} do
     generates_expected(server, :mono_column_scan)
+  end
+
+  test "generates expected mono w/ floyd_steinberg", %{server: server} do
+    generates_expected(server, :mono, :floyd_steinberg)
+  end
+
+  test "generates expected mono w/ sierra", %{server: server} do
+    generates_expected(server, :mono, :sierra)
+  end
+
+  test "generates expected mono w/ sierra_2row", %{server: server} do
+    generates_expected(server, :mono, :sierra_2row)
+  end
+
+  test "generates expected mono w/ sierra_lite", %{server: server} do
+    generates_expected(server, :mono, :sierra_lite)
   end
 end
