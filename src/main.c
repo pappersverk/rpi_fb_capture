@@ -312,7 +312,7 @@ static void handle_stdin(struct capture_info *info)
         info->request_buffer_ix -= len;
 
         if (info->request_buffer_ix > 0)
-            memmove(info->request_buffer, info->request_buffer + len, info->request_buffer_ix - len);
+            memmove(info->request_buffer, info->request_buffer + len, info->request_buffer_ix);
     }
 }
 
