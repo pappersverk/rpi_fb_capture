@@ -15,6 +15,7 @@ defmodule RpiFbCapture.MixProject do
       compilers: [:elixir_make | Mix.compilers()],
       make_targets: ["all"],
       make_clean: ["clean"],
+      make_error_message: "",
       docs: docs(),
       aliases: [format: [&format_c/1, "format"]],
       start_permanent: Mix.env() == :prod,
