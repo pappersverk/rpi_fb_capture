@@ -20,7 +20,7 @@ can be reported or any of these formats:
   writing to a file and viewing
 * Raw 24-bit RGB
 * Raw 1-bpp
-* Raw 1-bbp scanned vertically - useful for some LCDs
+* Raw 1-bbp scanned vertically - useful for some LCD displays
 
 ## Installation
 
@@ -61,7 +61,7 @@ iex> {:ok, frame} = RpiFbCapture.capture(cap, :ppm)
  }}
 
 # Save the capture to a file
-iex> File.write("/tmp/capture.ppm", frame.data)
+iex> File.write("capture.ppm", frame.data)
 :ok
 ```
 
