@@ -1,39 +1,12 @@
-#include <syslog.h>
 #include <err.h>
 #include <poll.h>
-#include <stdlib.h>
-
 #include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 #include <fcntl.h>
+#include <unistd.h>
 
-#include <bcm_host.h>
-
-#define MAX_REQUEST_BUFFER_SIZE 256
-
-struct capture_info {
-    int display_id;
-    int display_width;
-    int display_height;
-
-    int capture_width;
-    int capture_height;
-    int capture_stride;
-
-    uint16_t mono_threshold_r5;
-    uint16_t mono_threshold_g6;
-    uint16_t mono_threshold_b5;
-
-    uint16_t *buffer;
-    uint8_t *work;
-
-    DISPMANX_DISPLAY_HANDLE_T display_handle;
-    DISPMANX_RESOURCE_HANDLE_T capture_resource;
-
-    uint8_t request_buffer[MAX_REQUEST_BUFFER_SIZE];
-    int request_buffer_ix;
-
-    int send_snapshot;
-};
+#include "capture.h"
 
 static void set_mono_threshold(struct capture_info *info, uint8_t threshold)
 {
@@ -48,36 +21,8 @@ static int initialize(uint32_t device, int width, int height, struct capture_inf
 {
     memset(info, 0, sizeof(*info));
 
-    info->request_buffer_ix = 0;
-    info->display_id = device;
-    info->display_handle = vc_dispmanx_display_open(device);
-    if (!info->display_handle) {
-        syslog(LOG_ERR, "Unable to open primary display");
+    if (capture_initialize(device, width, height, info) < 0)
         return -1;
-    }
-    DISPMANX_MODEINFO_T display_info;
-    int ret = vc_dispmanx_display_get_info(info->display_handle, &display_info);
-    if (ret) {
-        syslog(LOG_ERR, "Unable to get primary display information");
-        return -1;
-    }
-
-    info->display_width = display_info.width;
-    info->display_height = display_info.height;
-
-    // If capture width or height are out of bounds, set them to reasonable sizes.
-    // This lets users capture the entire display without knowing how big it is.
-    info->capture_width =
-        (width <= 0 || width > info->display_width) ? info->display_width : width;
-    info->capture_height =
-        (height <= 0 || height > info->display_height) ? info->display_height : height;
-
-    // vc_dispmanx_resource_read_data seems to be implemented as memcpy. That means
-    // that copies are 1 dimensional rather than 2 dimensional so if we want to make
-    // one call to vc_dispmanx_resource_read_data then our destination buffer needs
-    // to be the same width as the display. Otherwise, we'd need to make a call for
-    // each line.
-    info->capture_stride = info->display_width;
 
     // This is an arbitrary value that looks relatively good for a program that wasn't
     // designed for monochrome.
@@ -86,13 +31,6 @@ static int initialize(uint32_t device, int width, int height, struct capture_inf
     info->buffer = (uint16_t *) malloc(info->capture_stride * info->capture_height * sizeof(uint16_t));
     info->work = (uint8_t *) malloc(info->capture_width * info->capture_height * 4);
 
-    uint32_t image_prt;
-    info->capture_resource = vc_dispmanx_resource_create(VC_IMAGE_RGB565, display_info.width, display_info.height, &image_prt);
-    if (!info->capture_resource) {
-        syslog(LOG_ERR, "Unable to create screen buffer");
-        vc_dispmanx_display_close(info->display_handle);
-        return -1;
-    }
     return 0;
 }
 
@@ -101,22 +39,8 @@ static void finalize(struct capture_info *info)
 {
     free(info->buffer);
     free(info->work);
-    vc_dispmanx_resource_delete(info->capture_resource);
-    vc_dispmanx_display_close(info->display_handle);
-}
 
-static int capture(struct capture_info *info)
-{
-    vc_dispmanx_snapshot(info->display_handle, info->capture_resource, DISPMANX_NO_ROTATE);
-    // Don't check the result since I don't know what it means.
-
-    // Be careful on vc_dispmanx_resource_read_data(). See the source code
-    // when in doubt, since it looks like someone tried to disguise a memcpy
-    // as a rectangular copy.
-    VC_RECT_T rect;
-    vc_dispmanx_rect_set(&rect, 0, 0, info->capture_stride, info->capture_height);
-    vc_dispmanx_resource_read_data(info->capture_resource, &rect, info->buffer, info->capture_stride * sizeof(uint16_t));
-    return 0;
+    capture_finalize(info);
 }
 
 static void write_stdout(void *buffer, size_t len)
@@ -243,7 +167,9 @@ static int emit_mono_rotate_flip(const struct capture_info *info)
 
 static int emit_capture_info(const struct capture_info *info)
 {
-    uint8_t *out = add_packet_length(info->work, 20);
+    uint8_t *out = add_packet_length(info->work, 36);
+    memcpy(out, &info->backend_name, 16);
+    out += 16;
     memcpy(out, &info->display_id, sizeof(uint32_t));
     out += sizeof(uint32_t);
     memcpy(out, &info->display_width, sizeof(uint32_t));
@@ -341,8 +267,6 @@ int main(int argc, char *argv[])
     uint32_t display_device = strtoul(argv[1], NULL, 0);
     int width = strtol(argv[2], NULL, 0);
     int height = strtol(argv[3], NULL, 0);
-
-    bcm_host_init();
 
     struct capture_info info;
     if (initialize(display_device, width, height, &info) < 0)

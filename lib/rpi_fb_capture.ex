@@ -19,6 +19,7 @@ defmodule RpiFbCapture do
               display_width: 0,
               display_height: 0,
               display_id: 0,
+              backend_name: "unknown",
               request: nil
   end
 
@@ -94,6 +95,20 @@ defmodule RpiFbCapture do
     end
   end
 
+  @doc """
+  Return the name of the active capture backend
+
+  Example backend names:
+
+  * `"sim"` for the simulator
+  * `"dispmanx"` for the Raspberry Pi
+  * `"unknown"` if the backend hasn't reported its name
+  """
+  @spec backend(GenServer.server()) :: String.t()
+  def backend(server) do
+    GenServer.call(server, :backend)
+  end
+
   # Server (callbacks)
 
   @impl true
@@ -135,6 +150,11 @@ defmodule RpiFbCapture do
   end
 
   @impl true
+  def handle_call(:backend, _from, state) do
+    {:reply, state.backend_name, state}
+  end
+
+  @impl true
   def handle_info({port, {:data, data}}, %{port: port} = state) do
     handle_port(state, data)
   end
@@ -151,8 +171,8 @@ defmodule RpiFbCapture do
 
   defp handle_port(
          state,
-         <<display_id::native-32, display_width::native-32, display_height::native-32,
-           capture_width::native-32, capture_height::native-32>>
+         <<backend_name::16-bytes, display_id::native-32, display_width::native-32,
+           display_height::native-32, capture_width::native-32, capture_height::native-32>>
        ) do
     # Capture information is 20 bytes - framebuffers are safely
     # larger, so there's no chance of an accident here.
@@ -162,7 +182,8 @@ defmodule RpiFbCapture do
         height: capture_height,
         display_width: display_width,
         display_height: display_height,
-        display_id: display_id
+        display_id: display_id,
+        backend_name: trim_c_string(backend_name)
     }
 
     {:noreply, new_state}
@@ -180,6 +201,10 @@ defmodule RpiFbCapture do
 
     GenServer.reply(from, {:ok, result})
     {:noreply, %{state | request: nil}}
+  end
+
+  defp trim_c_string(string) do
+    :binary.split(string, <<0>>) |> hd()
   end
 
   defp start_capture(state, from, format) do

@@ -19,27 +19,7 @@ BUILD  = $(MIX_APP_PATH)/obj
 
 TARGET_CFLAGS = $(shell src/detect_target.sh)
 
-# Check that we're on a supported build platform
-ifeq ($(CROSSCOMPILE),)
-    # Not crosscompiling.
-    ifeq ($(shell uname -s),Darwin)
-        $(warning rpi_fb_capture only works on Nerves and Raspbian.)
-        $(warning Skipping C compilation.)
-    else
-    ifeq ($(TARGET_CFLAGS),)
-        $(warning rpi_fb_capture only works on Nerves and Raspbian.)
-        $(warning If on Raspbian, I haven't tried this yet and there's probably an include path that's needed.)
-        $(warning Skipping C compilation.)
-    else
-        BIN = $(PREFIX)/rpi_fb_capture
-    endif
-    endif
-else
-# Crosscompiled build
-BIN = $(PREFIX)/rpi_fb_capture
-endif
-
-LDFLAGS += -lm -lbcm_host -lvchostif
+LDFLAGS += -lm
 
 CFLAGS ?= -O2 -Wall -Wextra -Wno-unused-parameter -pedantic
 CFLAGS += $(TARGET_CFLAGS)
@@ -47,9 +27,33 @@ CFLAGS += $(TARGET_CFLAGS)
 # Enable for debug messages
 # CFLAGS += -DDEBUG
 
-SRC = $(wildcard src/*.c)
+# Check that we're on a supported build platform
+ifeq ($(CROSSCOMPILE),)
+    # Not crosscompiling.
+    ifeq ($(shell uname -s),Darwin)
+        $(warning rpi_fb_capture only works on Nerves and Raspbian.)
+        $(warning Compiling the simulator.)
+        SRC = src/capture_sim.c
+    else
+    ifeq ($(TARGET_CFLAGS),)
+        $(warning rpi_fb_capture only works on Nerves and Raspbian.)
+        $(warning Compiling the simulator.)
+        SRC = src/capture_sim.c
+    else
+        SRC = src/capture_dispmanx.c
+        LDFLAGS += -lbcm_host -lvchostif
+    endif
+    endif
+else
+# Crosscompiled build
+SRC = src/capture_dispmanx.c
+LDFLAGS += -lbcm_host -lvchostif
+endif
+
+SRC += src/main.c
 HEADERS = $(wildcard src/*.h)
 OBJ = $(SRC:src/%.c=$(BUILD)/%.o)
+BIN = $(PREFIX)/rpi_fb_capture
 
 calling_from_make:
 	mix compile
