@@ -146,7 +146,7 @@ static int emit_mono(const struct capture_info *info)
 
         for (int y = 0; y < height; y++) {
             for (int x = 0; x < width; x += 8) {
-                *out = ((buffer[y * width + x] != 0 ? 1 : 0))
+                *out = (buffer[0] != 0 ? 1 : 0)
                   |  ((buffer[1] != 0 ? 1 : 0) << 1)
                   |  ((buffer[2] != 0 ? 1 : 0) << 2)
                   |  ((buffer[3] != 0 ? 1 : 0) << 3)
