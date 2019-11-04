@@ -147,13 +147,13 @@ static int emit_mono(const struct capture_info *info)
         for (int y = 0; y < height; y++) {
             for (int x = 0; x < width; x += 8) {
                 *out = (buffer[0] != 0 ? 1 : 0)
-                  |  ((buffer[1] != 0 ? 1 : 0) << 1)
-                  |  ((buffer[2] != 0 ? 1 : 0) << 2)
-                  |  ((buffer[3] != 0 ? 1 : 0) << 3)
-                  |  ((buffer[4] != 0 ? 1 : 0) << 4)
-                  |  ((buffer[5] != 0 ? 1 : 0) << 5)
-                  |  ((buffer[6] != 0 ? 1 : 0) << 6)
-                  |  ((buffer[7] != 0 ? 1 : 0) << 7);
+                       |  ((buffer[1] != 0 ? 1 : 0) << 1)
+                       |  ((buffer[2] != 0 ? 1 : 0) << 2)
+                       |  ((buffer[3] != 0 ? 1 : 0) << 3)
+                       |  ((buffer[4] != 0 ? 1 : 0) << 4)
+                       |  ((buffer[5] != 0 ? 1 : 0) << 5)
+                       |  ((buffer[6] != 0 ? 1 : 0) << 6)
+                       |  ((buffer[7] != 0 ? 1 : 0) << 7);
 
                 buffer += 8;
                 out++;
@@ -198,13 +198,13 @@ static int emit_mono_rotate_flip(const struct capture_info *info)
             const uint16_t *column = dithering_buffer;
             for (uint16_t y = 0; y < height; y += 8) {
                 *out = ((column[0] != 0 ? 1 : 0))
-                    |  ((column[width] != 0 ? 1 : 0) << 1)
-                    |  ((column[width * 2] != 0 ? 1 : 0) << 2)
-                    |  ((column[width * 3] != 0 ? 1 : 0) << 3)
-                    |  ((column[width * 4] != 0 ? 1 : 0) << 4)
-                    |  ((column[width * 5] != 0 ? 1 : 0) << 5)
-                    |  ((column[width * 6] != 0 ? 1 : 0) << 6)
-                    |  ((column[width * 7] != 0 ? 1 : 0) << 7);
+                       |  ((column[width] != 0 ? 1 : 0) << 1)
+                       |  ((column[width * 2] != 0 ? 1 : 0) << 2)
+                       |  ((column[width * 3] != 0 ? 1 : 0) << 3)
+                       |  ((column[width * 4] != 0 ? 1 : 0) << 4)
+                       |  ((column[width * 5] != 0 ? 1 : 0) << 5)
+                       |  ((column[width * 6] != 0 ? 1 : 0) << 6)
+                       |  ((column[width * 7] != 0 ? 1 : 0) << 7);
 
                 column += 8 * width;
                 out++;
