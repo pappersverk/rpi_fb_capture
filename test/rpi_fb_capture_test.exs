@@ -19,6 +19,62 @@ defmodule RpiFbCaptureTest do
     assert RpiFbCapture.backend(server) == "sim"
   end
 
+  test "generates expected ppm", %{server: server} do
+    generates_expected(server, :ppm)
+  end
+
+  test "generates expected rgb24", %{server: server} do
+    generates_expected(server, :rgb24)
+  end
+
+  test "generates expected rgb565", %{server: server} do
+    generates_expected(server, :rgb565)
+  end
+
+  describe "generates expected mono" do
+    test "without dithering", %{server: server} do
+      generates_expected(server, :mono)
+    end
+
+    test "with floyd_steinberg", %{server: server} do
+      generates_expected(server, :mono, :floyd_steinberg)
+    end
+
+    test "with sierra", %{server: server} do
+      generates_expected(server, :mono, :sierra)
+    end
+
+    test "with sierra_2row", %{server: server} do
+      generates_expected(server, :mono, :sierra_2row)
+    end
+
+    test "with sierra_lite", %{server: server} do
+      generates_expected(server, :mono, :sierra_lite)
+    end
+  end
+
+  describe "generates expected for mono_column_scan" do
+    test "without dithering", %{server: server} do
+      generates_expected(server, :mono_column_scan)
+    end
+
+    test "with floyd_steinberg", %{server: server} do
+      generates_expected(server, :mono_column_scan, :floyd_steinberg)
+    end
+
+    test "with sierra", %{server: server} do
+      generates_expected(server, :mono_column_scan, :sierra)
+    end
+
+    test "with sierra_2row", %{server: server} do
+      generates_expected(server, :mono_column_scan, :sierra_2row)
+    end
+
+    test "with sierra_lite", %{server: server} do
+      generates_expected(server, :mono_column_scan, :sierra_lite)
+    end
+  end
+
   defp generates_expected(server, format, dither \\ :none) do
     :ok = RpiFbCapture.set_dithering(server, dither)
     {:ok, frame} = RpiFbCapture.capture(server, format)
@@ -39,41 +95,5 @@ defmodule RpiFbCaptureTest do
 
   defp expected_path(width, height, format, dither) do
     "test/support/mandelbrot-#{width}x#{height}-#{dither}.#{format}"
-  end
-
-  test "generates expected ppm", %{server: server} do
-    generates_expected(server, :ppm)
-  end
-
-  test "generates expected rgb24", %{server: server} do
-    generates_expected(server, :rgb24)
-  end
-
-  test "generates expected rgb565", %{server: server} do
-    generates_expected(server, :rgb565)
-  end
-
-  test "generates expected mono", %{server: server} do
-    generates_expected(server, :mono)
-  end
-
-  test "generates expected mono_column_scan", %{server: server} do
-    generates_expected(server, :mono_column_scan)
-  end
-
-  test "generates expected mono w/ floyd_steinberg", %{server: server} do
-    generates_expected(server, :mono, :floyd_steinberg)
-  end
-
-  test "generates expected mono w/ sierra", %{server: server} do
-    generates_expected(server, :mono, :sierra)
-  end
-
-  test "generates expected mono w/ sierra_2row", %{server: server} do
-    generates_expected(server, :mono, :sierra_2row)
-  end
-
-  test "generates expected mono w/ sierra_lite", %{server: server} do
-    generates_expected(server, :mono, :sierra_lite)
   end
 end
