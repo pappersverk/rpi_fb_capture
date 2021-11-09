@@ -22,6 +22,10 @@ can be reported or any of these formats:
 * Raw 1-bpp
 * Raw 1-bbp scanned vertically - useful for some LCD displays
 
+## Device Support
+
+RpiFbCapture supports all Raspberry PI's except the RPI4 and RPI4000 (more discussion in https://github.com/pappersverk/rpi_fb_capture/issues/8)
+
 ## Installation
 
 The package can be installed by adding `rpi_fb_capture` to your list of
